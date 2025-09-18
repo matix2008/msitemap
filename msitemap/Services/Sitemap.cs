@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Xml.Linq;
+using System.Xml.Linq; // добавлен using для XElement и XDocument
 using msitemap.Models;
 
 namespace msitemap.Services
@@ -31,10 +31,15 @@ namespace msitemap.Services
             if (!File.Exists(configPath))
                 throw new FileNotFoundException($"Config-файл не найден: {configPath}");
             var configText = File.ReadAllText(configPath);
-            _configEntries = JsonSerializer.Deserialize<List<ConfigEntry>>(configText)
+            _configEntries = JsonSerializer.Deserialize<List<ConfigEntry>>(configText, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            })
                 ?? throw new Exception("Config-файл пуст или невалиден");
             if (_configEntries.Count == 0)
                 throw new Exception("Config-файл не содержит ни одной записи");
+            // Строгая валидация
+            ConfigValidator.Validate(_configEntries);
             _outputDirectory = outputDirectory ?? Directory.GetCurrentDirectory();
         }
 

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "msitemap": {
+      "commandName": "Project",
+      "commandLineArgs": "--xslt transform.xslt --config config.json"
+    }
+  }
+}
