@@ -38,6 +38,17 @@ namespace msitemap
         /// </summary>
         static void RunWithOptions(Options opts)
         {
+            // Установка рабочей директории, если указана
+            if (!string.IsNullOrWhiteSpace(opts.WorkingDirectory))
+            {
+                if (!Directory.Exists(opts.WorkingDirectory))
+                {
+                    Console.WriteLine($"Ошибка: рабочая директория '{opts.WorkingDirectory}' не существует.");
+                    return;
+                }
+                Directory.SetCurrentDirectory(opts.WorkingDirectory);
+            }
+
             // Обработка --version
             if (opts.Version)
             {
@@ -49,7 +60,7 @@ namespace msitemap
             {
                 Console.WriteLine("Утилита для генерации sitemap.xml на основе XML, XSLT и config.json");
                 Console.WriteLine("Пример использования:");
-                Console.WriteLine("  msitemap --xslt transform.xslt --config config.json --output sitemap.xml");
+                Console.WriteLine("  msitemap --xslt transform.xslt --config config.json --output sitemap.xml --directory ./data");
                 return;
             }
 
@@ -79,6 +90,7 @@ namespace msitemap
             Console.WriteLine($"Используется XSLT: {xsltFile}");
             Console.WriteLine($"Используется config: {configFile}");
             Console.WriteLine($"Имя sitemap-файла: {sitemapFile}");
+            Console.WriteLine($"Рабочая директория: {Directory.GetCurrentDirectory()}");
 
             // Поиск всех XML-файлов в текущем каталоге, кроме XSLT и config.json
             var currentDir = Directory.GetCurrentDirectory();
@@ -86,6 +98,14 @@ namespace msitemap
                 .Where(f => !string.Equals(Path.GetFileName(f), Path.GetFileName(xsltFile), StringComparison.OrdinalIgnoreCase))
                 .Where(f => !string.Equals(Path.GetFileName(f), Path.GetFileName(configFile), StringComparison.OrdinalIgnoreCase))
                 .ToList();
+
+            // Применяем маску пропуска, если указана
+            if (!string.IsNullOrWhiteSpace(opts.SkipMask))
+            {
+                xmlFiles = xmlFiles
+                    .Where(f => !Path.GetFileName(f).Contains(opts.SkipMask, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
 
             if (xmlFiles.Count == 0)
             {

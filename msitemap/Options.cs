@@ -16,6 +16,12 @@ namespace msitemap
         [Option('o', "output", Required = false, HelpText = "Имя выходного sitemap-файла.")]
         public string? SitemapFile { get; set; }
 
+        [Option('d', "directory", Required = false, HelpText = "Рабочая директория для поиска XML и вывода sitemap.")]
+        public string? WorkingDirectory { get; set; }
+
+        [Option("skip", Required = false, HelpText = "Маска (подстрока) для пропуска XML-файлов по имени.")]
+        public string? SkipMask { get; set; }
+
         [Option("version", HelpText = "Показать версию приложения.")]
         public bool Version { get; set; }
 
