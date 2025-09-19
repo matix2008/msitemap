@@ -63,24 +63,25 @@ namespace msitemap.Services
                 }
                 var entry = new SitemapEntry
                 {
-                    Loc = GetValueByKey(item, config.Loc),
-                    Lastmod = string.IsNullOrEmpty(config.Lastmod) ? item.Date : config.Lastmod,
+                    // Формируем Loc как /part/{значение из config.Loc}
+                    Loc = $"/{item.Part}/{GetValueByKey(item, config.Loc)}",
+                    Lastmod = string.IsNullOrEmpty(config.Lastmod) || 
+                        config.Lastmod.Equals("date", StringComparison.OrdinalIgnoreCase) ? item.Date : config.Lastmod,
                     Changefreq = config.Changefreq,
                     Priority = config.Priority
                 };
                 sitemapEntries.Add(entry);
             }
 
-            // Формируем XML-документ sitemap
-            var urlset = new XElement("urlset",
+            var ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+            var urlset = new XElement(XName.Get("urlset", ns),
                 new XAttribute(XNamespace.Xmlns + "xsi", "http://www.w3.org/2001/XMLSchema-instance"),
-                new XAttribute(XNamespace.Xmlns + "", "http://www.sitemaps.org/schemas/sitemap/0.9"),
                 sitemapEntries.Select(e =>
-                    new XElement("url",
-                        new XElement("loc", e.Loc),
-                        new XElement("lastmod", FormatDate(e.Lastmod)),
-                        new XElement("changefreq", e.Changefreq),
-                        new XElement("priority", e.Priority.ToString(CultureInfo.InvariantCulture))
+                    new XElement(XName.Get("url", ns),
+                        new XElement(XName.Get("loc", ns), e.Loc),
+                        new XElement(XName.Get("lastmod", ns), FormatDate(e.Lastmod)),
+                        new XElement(XName.Get("changefreq", ns), e.Changefreq),
+                        new XElement(XName.Get("priority", ns), e.Priority.ToString(CultureInfo.InvariantCulture))
                     )
                 )
             );

@@ -45,7 +45,10 @@ namespace msitemap.Services
             using var xw = XmlWriter.Create(sw, _xslt.OutputSettings);
             _xslt.Transform(xmlReader, xw);
             string json = sw.ToString();
-            var dict = JsonSerializer.Deserialize<Dictionary<string, List<PageGroupItem>>>(json);
+            var dict = JsonSerializer.Deserialize<Dictionary<string, List<PageGroupItem>>>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
             if (dict != null)
             {
                 foreach (var list in dict.Values)
