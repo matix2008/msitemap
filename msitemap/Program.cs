@@ -43,7 +43,7 @@ namespace msitemap
             {
                 if (!Directory.Exists(opts.WorkingDirectory))
                 {
-                    Console.WriteLine($"Ошибка: рабочая директория '{opts.WorkingDirectory}' не существует.");
+                    Logger.Log($"Ошибка: рабочая директория '{opts.WorkingDirectory}' не существует.");
                     return;
                 }
                 Directory.SetCurrentDirectory(opts.WorkingDirectory);
@@ -65,32 +65,26 @@ namespace msitemap
             }
 
             // Получение путей из опций или значений по умолчанию
-            string xsltFile = opts.XsltFile ?? (opts.ConfigFile == null && opts.SitemapFile == null && opts.Version == false && opts.Help == false && opts.XsltFile == null && opts.ConfigFile == null ? null : "transform.xslt");
+            string xsltFile = opts.XsltFile ?? "transform.xslt";
             string configFile = opts.ConfigFile ?? "config.json";
             string sitemapFile = opts.SitemapFile ?? "sitemap.xml";
-
-            if (string.IsNullOrEmpty(xsltFile))
-            {
-                Console.WriteLine("Ошибка: Необходимо указать XSLT-файл через --xslt.");
-                return;
-            }
 
             // Проверка наличия файлов XSLT и config.json
             if (!File.Exists(xsltFile))
             {
-                Console.WriteLine($"Ошибка: XSLT-файл '{xsltFile}' не найден.");
+                Logger.Log($"Ошибка: XSLT-файл '{xsltFile}' не найден.");
                 return;
             }
             if (!File.Exists(configFile))
             {
-                Console.WriteLine($"Ошибка: config-файл '{configFile}' не найден.");
+                Logger.Log($"Ошибка: config-файл '{configFile}' не найден.");
                 return;
             }
 
-            Console.WriteLine($"Используется XSLT: {xsltFile}");
-            Console.WriteLine($"Используется config: {configFile}");
-            Console.WriteLine($"Имя sitemap-файла: {sitemapFile}");
-            Console.WriteLine($"Рабочая директория: {Directory.GetCurrentDirectory()}");
+            Logger.Log($"Используется XSLT: {xsltFile}");
+            Logger.Log($"Используется config: {configFile}");
+            Logger.Log($"Имя sitemap-файла: {sitemapFile}");
+            Logger.Log($"Рабочая директория: {Directory.GetCurrentDirectory()}");
 
             // Поиск всех XML-файлов в текущем каталоге, кроме XSLT и config.json
             var currentDir = Directory.GetCurrentDirectory();
@@ -109,14 +103,14 @@ namespace msitemap
 
             if (xmlFiles.Count == 0)
             {
-                Console.WriteLine("Не найдено ни одного XML-файла для обработки.");
+                Logger.Log("Не найдено ни одного XML-файла для обработки.");
                 return;
             }
 
-            Console.WriteLine($"Найдено XML-файлов: {xmlFiles.Count}");
+            Logger.Log($"Найдено XML-файлов: {xmlFiles.Count}");
             foreach (var file in xmlFiles)
             {
-                Console.WriteLine($"  {Path.GetFileName(file)}");
+                Logger.Log($"  {Path.GetFileName(file)}");
             }
 
             // Обработка XML-файлов и сбор PageGroupItem через JsonList
@@ -127,7 +121,7 @@ namespace msitemap
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка загрузки XSLT: {ex.Message}");
+                Logger.Log($"Ошибка загрузки XSLT: {ex.Message}");
                 return;
             }
 
@@ -136,33 +130,33 @@ namespace msitemap
                 try
                 {
                     jsonList.AddXml(xmlFile);
-                    Console.WriteLine($"Успешно обработан: {Path.GetFileName(xmlFile)}");
+                    Logger.Log($"Успешно обработан: {Path.GetFileName(xmlFile)}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Ошибка обработки {Path.GetFileName(xmlFile)}: {ex.Message}");
+                    Logger.Log($"Ошибка обработки {Path.GetFileName(xmlFile)}: {ex.Message}");
                 }
             }
 
             var allItems = jsonList.Items.ToList();
             if (allItems.Count == 0)
             {
-                Console.WriteLine("Не удалось получить ни одной записи после объединения JSON.");
+                Logger.Log("Не удалось получить ни одной записи после объединения JSON.");
                 return;
             }
-            Console.WriteLine($"Всего записей после объединения: {allItems.Count}");
+            Logger.Log($"Всего записей после объединения: {allItems.Count}");
 
             // Генерация sitemap.xml через класс Sitemap
             try
             {
                 var sitemap = new Sitemap(configFile, currentDir);
                 int sitemapCount = sitemap.Make(jsonList, sitemapFile);
-                Console.WriteLine($"Сформировано sitemap записей: {sitemapCount}");
-                Console.WriteLine($"Файл {sitemapFile} успешно создан в каталоге: {currentDir}");
+                Logger.Log($"Сформировано sitemap записей: {sitemapCount}");
+                Logger.Log($"Файл {sitemapFile} успешно создан в каталоге: {currentDir}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка генерации sitemap.xml: {ex.Message}");
+                Logger.Log($"Ошибка генерации sitemap.xml: {ex.Message}");
             }
         }
     }

@@ -2,7 +2,7 @@
   "profiles": {
     "msitemap": {
       "commandName": "Project",
-      "commandLineArgs": "--xslt transform.xslt --config config.json"
+      "commandLineArgs": "--d \"D:\\Реалант\\Проекты\\СРЭД\\Маркетинг\\SEO\\Карта сайта 2025\""
     }
   }
 }
