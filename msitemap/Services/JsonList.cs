@@ -55,5 +55,11 @@ namespace msitemap.Services
                     _items.AddRange(list);
             }
         }
+
+        public List<PageGroupItem> GetItemsByPart(string targetPart)
+        {
+
+            return _items.Where(x => string.Equals(x.Part, targetPart, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
     }
 }

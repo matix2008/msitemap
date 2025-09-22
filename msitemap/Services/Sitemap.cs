@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Xml.Linq; // добавлен using для XElement и XDocument
+using System.Xml.Linq;
 using msitemap.Models;
 
 namespace msitemap.Services
@@ -14,72 +14,124 @@ namespace msitemap.Services
     /// </summary>
     public class Sitemap
     {
-        // Список конфигураций для разных part
-        private readonly List<ConfigEntry> _configEntries;
-        // Каталог, в который будет сохранён sitemap.xml
+        private readonly SitemapConfig _config;
         private readonly string _outputDirectory;
 
-        /// <summary>
-        /// Конструктор. Загружает и парсит config.json.
-        /// </summary>
-        /// <param name="configPath">Путь к config.json</param>
-        /// <param name="outputDirectory">Каталог для sitemap.xml (по умолчанию — текущий)</param>
-        /// <exception cref="FileNotFoundException">Если config.json не найден</exception>
-        /// <exception cref="Exception">Если config.json пуст или невалиден</exception>
         public Sitemap(string configPath, string? outputDirectory = null)
         {
             if (!File.Exists(configPath))
                 throw new FileNotFoundException($"Config-файл не найден: {configPath}");
             var configText = File.ReadAllText(configPath);
-            _configEntries = JsonSerializer.Deserialize<List<ConfigEntry>>(configText, new JsonSerializerOptions
+            _config = JsonSerializer.Deserialize<SitemapConfig>(configText, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
-            })
-                ?? throw new Exception("Config-файл пуст или невалиден");
-            if (_configEntries.Count == 0)
-                throw new Exception("Config-файл не содержит ни одной записи");
+            }) ?? throw new Exception("Config-файл пуст или невалиден");
+            if (_config.Parts == null || _config.Parts.Count == 0)
+                throw new Exception("Config-файл не содержит ни одной записи в parts");
             // Строгая валидация
-            ConfigValidator.Validate(_configEntries);
+            ConfigValidator.Validate(_config.Parts);
             _outputDirectory = outputDirectory ?? Directory.GetCurrentDirectory();
         }
-
-        /// <summary>
-        /// Генерирует sitemap.xml на основе списка страниц и сохраняет его в указанный файл.
-        /// </summary>
-        /// <param name="list">Список страниц (JsonList)</param>
-        /// <param name="sitemapFileName">Имя файла sitemap (например, sitemap.xml)</param>
-        /// <returns>Количество записей в sitemap</returns>
         public int Make(JsonList list, string sitemapFileName)
         {
             var sitemapEntries = new List<SitemapEntry>();
-            // Для каждой страницы ищем соответствующий config и формируем SitemapEntry
-            foreach (var item in list.Items)
+            var usedParts = new HashSet<string>();
+            string root = _config.Root?.TrimEnd('/') ?? string.Empty;
+
+            int itemsUsed = 0;
+            foreach (var cfgPart in _config.Parts)
             {
-                var config = _configEntries.FirstOrDefault(c => c.Part == item.Part);
-                if (config == null)
+                // Добавляем самостоятельные части сразу
+                if (cfgPart.PartAsSolo)
                 {
-                    // Если для part нет конфигурации — пропускаем
-                    continue;
+                    var loc = $"{root}/{cfgPart.Part}".Replace("//", "/").TrimEnd('/');
+                    string lastmod;
+                    if (string.Equals(cfgPart.Lastmod, "date", StringComparison.OrdinalIgnoreCase))
+                        lastmod = DateTime.Now.ToString("yyyy-MM-dd");
+                    else
+                        lastmod = cfgPart.Lastmod;
+                    sitemapEntries.Add(new SitemapEntry
+                    {
+                        Loc = loc,
+                        Lastmod = FormatDate(lastmod),
+                        Changefreq = cfgPart.Changefreq,
+                        Priority = cfgPart.Priority
+                    });
                 }
-                var entry = new SitemapEntry
+
+                // Для каждой Part получаем список элементов (PageGroupItem)
+                var partItems = list.GetItemsByPart(cfgPart.Part);
+                foreach (var item in partItems)
                 {
-                    // Формируем Loc как /part/{значение из config.Loc}
-                    Loc = $"/{item.Part}/{GetValueByKey(item, config.Loc)}",
-                    Lastmod = string.IsNullOrEmpty(config.Lastmod) || 
-                        config.Lastmod.Equals("date", StringComparison.OrdinalIgnoreCase) ? item.Date : config.Lastmod,
-                    Changefreq = config.Changefreq,
-                    Priority = config.Priority
-                };
-                sitemapEntries.Add(entry);
+                    var locValue = GetValueByKey(item, cfgPart.Loc);
+                    if (string.IsNullOrWhiteSpace(locValue))
+                        continue;
+                    var loc = $"{root}/{item.Part}{(string.IsNullOrEmpty(item.Part) ? "" : "/")}{locValue}".Replace("//", "/");
+                    var lastmod = (string.IsNullOrEmpty(cfgPart.Lastmod) || cfgPart.Lastmod.Equals("date", StringComparison.OrdinalIgnoreCase))
+                        ? item.Date
+                        : cfgPart.Lastmod;
+
+                    sitemapEntries.Add(new SitemapEntry
+                    {
+                        Loc = loc,
+                        Lastmod = FormatDate(lastmod),
+                        Changefreq = cfgPart.Changefreq,
+                        Priority = cfgPart.Priority
+                    });
+
+                    itemsUsed++;
+                }
             }
 
+            if( itemsUsed != list.Items.Count)
+                Logger.Log($"Предупреждение: Кол-во использованных исходных элементов ({itemsUsed}) не равно общему кол-ву исходных элеентов ({list.Items.Count}).");
+
+            //// Для каждой страницы ищем соответствующий config и формируем SitemapEntry
+            //foreach (var item in list.Items)
+            //{
+            //    var config = _config.Parts.FirstOrDefault(c => c.Part == item.Part);
+            //    if (config == null)
+            //        continue;
+            //    var locValue = GetValueByKey(item, config.Loc);
+            //    if (string.IsNullOrWhiteSpace(locValue))
+            //        continue;
+            //    var loc = $"{root}/{item.Part}{(string.IsNullOrEmpty(item.Part) ? "" : "/")}{locValue}".Replace("//", "/");
+            //    var lastmod = (string.IsNullOrEmpty(config.Lastmod) || config.Lastmod.Equals("date", StringComparison.OrdinalIgnoreCase))
+            //        ? item.Date
+            //        : config.Lastmod;
+            //    sitemapEntries.Add(new SitemapEntry
+            //    {
+            //        Loc = loc,
+            //        Lastmod = FormatDate(lastmod),
+            //        Changefreq = config.Changefreq,
+            //        Priority = config.Priority
+            //    });
+            //    usedParts.Add(item.Part);
+            //}
+            //// Добавляем solo parts, если их нет в usedParts
+            //foreach (var config in _config.Parts.Where(p => p.PartAsSolo && !usedParts.Contains(p.Part)))
+            //{
+            //    var loc = $"{root}/{config.Part}".Replace("//", "/").TrimEnd('/');
+            //    string lastmod;
+            //    if (string.Equals(config.Lastmod, "date", StringComparison.OrdinalIgnoreCase))
+            //        lastmod = DateTime.Now.ToString("yyyy-MM-dd");
+            //    else
+            //        lastmod = config.Lastmod;
+            //    sitemapEntries.Add(new SitemapEntry
+            //    {
+            //        Loc = loc,
+            //        Lastmod = FormatDate(lastmod),
+            //        Changefreq = config.Changefreq,
+            //        Priority = config.Priority
+            //    });
+            //}
             var ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
             var urlset = new XElement(XName.Get("urlset", ns),
                 new XAttribute(XNamespace.Xmlns + "xsi", "http://www.w3.org/2001/XMLSchema-instance"),
                 sitemapEntries.Select(e =>
                     new XElement(XName.Get("url", ns),
                         new XElement(XName.Get("loc", ns), e.Loc),
-                        new XElement(XName.Get("lastmod", ns), FormatDate(e.Lastmod)),
+                        new XElement(XName.Get("lastmod", ns), e.Lastmod),
                         new XElement(XName.Get("changefreq", ns), e.Changefreq),
                         new XElement(XName.Get("priority", ns), e.Priority.ToString(CultureInfo.InvariantCulture))
                     )
@@ -91,9 +143,6 @@ namespace msitemap.Services
             return sitemapEntries.Count;
         }
 
-        /// <summary>
-        /// Получить значение свойства PageGroupItem по имени (используется для подстановки loc, lastmod и др.)
-        /// </summary>
         private static string GetValueByKey(PageGroupItem item, string key)
         {
             return key.ToLower() switch
@@ -105,9 +154,6 @@ namespace msitemap.Services
             };
         }
 
-        /// <summary>
-        /// Преобразовать дату к формату ISO 8601 (yyyy-MM-dd) для lastmod
-        /// </summary>
         private static string FormatDate(string date)
         {
             if (DateTime.TryParse(date, out var dt))

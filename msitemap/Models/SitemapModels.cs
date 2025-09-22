@@ -1,6 +1,15 @@
 namespace msitemap.Models
 {
     /// <summary>
+    /// Корневая конфигурация sitemap (root + parts)
+    /// </summary>
+    public class SitemapConfig
+    {
+        public string Root { get; set; } = string.Empty;
+        public List<ConfigEntry> Parts { get; set; } = new();
+    }
+
+    /// <summary>
     /// Элемент группы страниц, получаемый после XSLT-преобразования и парсинга JSON.
     /// </summary>
     public class PageGroupItem
@@ -44,6 +53,10 @@ namespace msitemap.Models
         /// Приоритет страницы в sitemap.
         /// </summary>
         public double Priority { get; set; }
+        /// <summary>
+        /// Индикатор того, что данный part обрабатывается как отдельная сущность.
+        /// </summary>
+        public bool PartAsSolo { get; set; } // part_as_solo
     }
 
     /// <summary>
