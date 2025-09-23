@@ -19,13 +19,16 @@ namespace msitemap
         [Option('d', "directory", Required = false, HelpText = "Рабочая директория для поиска XML и вывода sitemap.")]
         public string? WorkingDirectory { get; set; }
 
-        [Option("skip", Required = false, HelpText = "Маска (подстрока) для пропуска XML-файлов по имени.")]
+        [Option('s', "skip", Required = false, HelpText = "Маска (подстрока) для пропуска XML-файлов по имени.")]
         public string? SkipMask { get; set; }
 
-        [Option("version", HelpText = "Показать версию приложения.")]
+        [Option('v', "version", HelpText = "Показать версию приложения.")]
         public bool Version { get; set; }
 
-        [Option("help", HelpText = "Показать справку.")]
+        [Option('h', "help", HelpText = "Показать справку.")]
         public bool Help { get; set; }
+
+        [Option('k', "check", HelpText = "Проверяет URLs из карты сайта.")]
+        public bool CheckSitemap { get; set; }
     }
 }

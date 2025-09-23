@@ -11,8 +11,8 @@ namespace msitemap.Services
     /// </summary>
     public static class ConfigValidator
     {
-        private static readonly string[] AllowedLocLastmod = { "slug", "part", "date" };
-        private static readonly string[] AllowedChangefreq = { "always", "hourly", "daily", "weekly", "monthly", "yearly", "never" };
+        private static readonly string[] AllowedLocLastmod = [ "slug", "part", "date" ];
+        private static readonly string[] AllowedChangefreq = [ "always", "hourly", "daily", "weekly", "monthly", "yearly", "never" ];
 
         public static void Validate(List<ConfigEntry> entries)
         {

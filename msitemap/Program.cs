@@ -5,6 +5,7 @@ using msitemap.Models;
 using System.Globalization;
 using msitemap.Services;
 using CommandLine;
+using System.Threading.Tasks;
 
 namespace msitemap
 {
@@ -17,26 +18,38 @@ namespace msitemap
         /// Основной метод запуска приложения.
         /// </summary>
         /// <param name="args">Аргументы командной строки: --xslt, --config, --output, --help, --version</param>
-        static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            Parser.Default.ParseArguments<Options>(args)
-                .WithParsed(RunWithOptions)
-                .WithNotParsed(errors =>
+            //Parser.Default.ParseArguments<Options>(args)
+            //    .WithParsed(async opts => await RunWithOptions(opts))
+            //    .WithNotParsed(errors =>
+            //    {
+            //        // Если явно указан --help, CommandLineParser сам выведет справку
+            //        // Если явно указан --version, CommandLineParser сам выведет версию
+            //        // В остальных случаях — выводим краткую подсказку
+            //        if (!args.Contains("--help") && !args.Contains("--version"))
+            //        {
+            //            Console.WriteLine("Используйте --help для справки.");
+            //        }
+            //    });
+
+            var parsed = Parser.Default.ParseArguments<Options>(args);
+
+            // Используем MapResult, чтобы гарантированно дождаться RunWithOptions
+            await parsed.MapResult(
+                async (Options opts) =>
                 {
-                    // Если явно указан --help, CommandLineParser сам выведет справку
-                    // Если явно указан --version, CommandLineParser сам выведет версию
-                    // В остальных случаях — выводим краткую подсказку
-                    if (!args.Contains("--help") && !args.Contains("--version"))
-                    {
-                        Console.WriteLine("Используйте --help для справки.");
-                    }
-                });
+                    await RunWithOptions(opts);
+                    return 0;
+                },
+                errs => Task.FromResult(1)
+            );
         }
 
         /// <summary>
         /// Основная логика генерации sitemap.xml с обработкой опций.
         /// </summary>
-        static void RunWithOptions(Options opts)
+        static async Task RunWithOptions(Options opts)
         {
             // Установка рабочей директории, если указана
             if (!string.IsNullOrWhiteSpace(opts.WorkingDirectory))
@@ -64,10 +77,60 @@ namespace msitemap
                 return;
             }
 
+            string sitemapFile = opts.SitemapFile ?? "sitemap.xml";
+
+            if (opts.CheckSitemap)
+            {
+                if (!File.Exists(sitemapFile))
+                {
+                    Logger.Log($"Ошибка: файл карты сайта '{sitemapFile}' не найден.");
+                    return;
+                }
+
+                try
+                { 
+                    string[] urls = [..Sitemap.Load(sitemapFile).Select(e => e.Loc)];
+
+                    Logger.Log($"Начало проверки карты сайта: {sitemapFile}. {urls.Length} ссылок");
+
+                    var results = await LinkChecker.CheckAsync(urls, degreeOfParallelism: 8);
+
+                    int nOK = 0;
+                    int nBroken404 = 0;
+                    int nRedirect = 0;
+
+                    foreach (var r in results.OrderBy(x => x.Url))
+                    {
+                        if( r.IsRedirect ) nRedirect++;
+                        if( r.IsBroken404 ) nBroken404++;
+                        if (r.Status == System.Net.HttpStatusCode.OK) nOK++;
+
+                        Logger.Log(
+                            $"{r.Url}\n" +
+                            $"  Status: {r.Status?.ToString() ?? "N/A"}  " +
+                            (r.IsRedirect ? $"Redirect→ {r.RedirectLocation}" : "") +
+                            (r.IsBroken404 ? "  [BROKEN 404]" : "") +
+                            (r.Error is not null ? $"  Error: {r.Error}" : "") +
+                            $"  ({r.ElapsedMs} ms)"
+                        );
+                    }
+
+                    Logger.Log($"Проверка карты сайта: {sitemapFile} завершена.");
+                    Logger.Log($"Редирект: {nRedirect}");
+                    Logger.Log($"Битых ссылок: {nBroken404}");
+                    Logger.Log($"ОК: {nOK}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Ошибка проверки ссылок из карты сайта: {ex.Message}");
+                }
+
+                return;
+            }
+
             // Получение путей из опций или значений по умолчанию
             string xsltFile = opts.XsltFile ?? "transform.xslt";
             string configFile = opts.ConfigFile ?? "config.json";
-            string sitemapFile = opts.SitemapFile ?? "sitemap.xml";
 
             // Проверка наличия файлов XSLT и config.json
             if (!File.Exists(xsltFile))
@@ -96,9 +159,8 @@ namespace msitemap
             // Применяем маску пропуска, если указана
             if (!string.IsNullOrWhiteSpace(opts.SkipMask))
             {
-                xmlFiles = xmlFiles
-                    .Where(f => !Path.GetFileName(f).Contains(opts.SkipMask, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                xmlFiles = [..xmlFiles
+                    .Where(f => !Path.GetFileName(f).Contains(opts.SkipMask, StringComparison.OrdinalIgnoreCase))];
             }
 
             if (xmlFiles.Count == 0)

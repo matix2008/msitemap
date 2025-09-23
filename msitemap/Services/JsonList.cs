@@ -59,7 +59,7 @@ namespace msitemap.Services
         public List<PageGroupItem> GetItemsByPart(string targetPart)
         {
 
-            return _items.Where(x => string.Equals(x.Part, targetPart, StringComparison.OrdinalIgnoreCase)).ToList();
+            return [.._items.Where(x => string.Equals(x.Part, targetPart, StringComparison.OrdinalIgnoreCase))];
         }
     }
 }

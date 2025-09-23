@@ -32,6 +32,26 @@ namespace msitemap.Services
             ConfigValidator.Validate(_config.Parts);
             _outputDirectory = outputDirectory ?? Directory.GetCurrentDirectory();
         }
+
+        public static List<SitemapEntry> Load(string filePath)
+        {
+            // Загружаем XML
+            XDocument doc = XDocument.Load(filePath);
+
+            // Пространство имён sitemap по стандарту
+            XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+
+            // Парсим элементы <url>
+            return [..doc.Descendants(ns + "url")
+                .Select(url => new SitemapEntry
+                {
+                    Loc = (string?)url.Element(ns + "loc") ?? string.Empty,
+                    Lastmod = (string?)url.Element(ns + "lastmod") ?? string.Empty,
+                    Changefreq = (string?)url.Element(ns + "changefreq") ?? string.Empty,
+                    Priority = double.TryParse((string?)url.Element(ns + "priority"), out double p) ? p : 0
+                })];
+        }
+
         public int Make(JsonList list, string sitemapFileName)
         {
             var sitemapEntries = new List<SitemapEntry>();
@@ -44,7 +64,8 @@ namespace msitemap.Services
                 // Добавляем самостоятельные части сразу
                 if (cfgPart.PartAsSolo)
                 {
-                    var loc = $"{root}/{cfgPart.Part}".Replace("//", "/").TrimEnd('/');
+                    string loc = $"{cfgPart.Part}".Replace("//", "/").TrimEnd('/');
+                    loc = $"{root}/{loc}";
                     string lastmod;
                     if (string.Equals(cfgPart.Lastmod, "date", StringComparison.OrdinalIgnoreCase))
                         lastmod = DateTime.Now.ToString("yyyy-MM-dd");
@@ -66,7 +87,8 @@ namespace msitemap.Services
                     var locValue = GetValueByKey(item, cfgPart.Loc);
                     if (string.IsNullOrWhiteSpace(locValue))
                         continue;
-                    var loc = $"{root}/{item.Part}{(string.IsNullOrEmpty(item.Part) ? "" : "/")}{locValue}".Replace("//", "/");
+                    string loc = $"{item.Part}{(string.IsNullOrEmpty(item.Part) ? "" : "/")}{locValue}".Replace("//", "/");
+                    loc = $"{root}/{loc}";
                     var lastmod = (string.IsNullOrEmpty(cfgPart.Lastmod) || cfgPart.Lastmod.Equals("date", StringComparison.OrdinalIgnoreCase))
                         ? item.Date
                         : cfgPart.Lastmod;

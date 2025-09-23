@@ -2,7 +2,7 @@
   "profiles": {
     "msitemap": {
       "commandName": "Project",
-      "commandLineArgs": "--d \"D:\\Реалант\\Проекты\\СРЭД\\Маркетинг\\SEO\\Карта сайта 2025\\test\""
+      "commandLineArgs": "--k --d \"D:\\Реалант\\Проекты\\СРЭД\\Маркетинг\\SEO\\Карта сайта 2025\\test\""
     }
   }
 }

@@ -6,7 +6,7 @@ namespace msitemap.Models
     public class SitemapConfig
     {
         public string Root { get; set; } = string.Empty;
-        public List<ConfigEntry> Parts { get; set; } = new();
+        public List<ConfigEntry> Parts { get; set; } = [];
     }
 
     /// <summary>
